@@ -1,5 +1,11 @@
+mod gfx;
+
+use std::env::set_var;
+
 use color_eyre::{eyre::Context, Report};
-use tracing::info;
+use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
+use wgpu::SurfaceError;
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -7,24 +13,32 @@ use winit::{
     window::WindowBuilder,
 };
 
-fn main() -> Result<(), Report> {
+use crate::gfx::{GfxError, GfxState};
+
+#[tokio::main]
+async fn main() -> Result<(), Report> {
     // Install color_eyre to get prettier error messages
     color_eyre::install().context("initialising color_eyre")?;
 
+    set_var("RUST_LOG", "delve=debug,wgpu=warn");
+
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
         .compact()
         .without_time()
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     info!("Starting game...");
 
     let event_loop = EventLoop::new();
+    let window_size = PhysicalSize::new(1024, 768);
     let window = WindowBuilder::new()
-        .with_title("Delve")
-        .with_inner_size(PhysicalSize::new(1024, 768))
+        .with_title("Delve (Mage Engine)")
+        .with_inner_size(window_size)
         .build(&event_loop)
         .context("creating primary window")?;
+
+    let mut gfx = GfxState::new(&window, window_size.width, window_size.height).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -42,8 +56,27 @@ fn main() -> Result<(), Report> {
                 } => {
                     *control_flow = ControlFlow::Exit;
                 }
+
+                WindowEvent::Resized(PhysicalSize { width, height })
+                | WindowEvent::ScaleFactorChanged {
+                    new_inner_size: &mut PhysicalSize { width, height },
+                    ..
+                } => {
+                    gfx.resize(width, height);
+                }
+
                 _ => {}
             },
+
+            Event::RedrawRequested(_) => match gfx.render() {
+                Ok(_) => {}
+                Err(GfxError::BadRender(SurfaceError::Lost)) => gfx.recreate(),
+                Err(GfxError::BadRender(SurfaceError::OutOfMemory)) => {
+                    *control_flow = ControlFlow::Exit
+                }
+                Err(e) => error!("Error rendering: {}", e),
+            },
+
             _ => {}
         }
     });
