@@ -1,15 +1,15 @@
-use std::{iter::once, marker::PhantomData};
+use std::marker::PhantomData;
 
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
-use thiserror::Error;
 use tracing::info;
 use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, DeviceType, Dx12Compiler,
-    Features, Instance, Limits, LoadOp, Operations, Queue, RenderPassColorAttachment,
-    RenderPassDescriptor, Surface, SurfaceConfiguration, TextureUsages, TextureViewDescriptor,
+    Backends, Device, DeviceDescriptor, DeviceType, Dx12Compiler, Features, Instance, Limits,
+    Queue, ShaderModuleDescriptor, Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
 };
 
-pub struct GfxState<'window> {
+use super::{render_pipeline::RenderPipelineBuilder, Frame, GfxError, Material};
+
+pub struct Screen<'window> {
     surface: Surface,
     surface_config: SurfaceConfiguration,
     surface_size: (u32, u32),
@@ -18,26 +18,8 @@ pub struct GfxState<'window> {
     window_lifetime: PhantomData<&'window ()>,
 }
 
-#[derive(Debug, Error)]
-pub enum GfxError {
-    #[error("failed to create WGPU surface")]
-    SurfaceCreation(#[from] wgpu::CreateSurfaceError),
-
-    #[error("failed to find a suitable GPU adapter")]
-    NoSuitableAdapter,
-
-    #[error("failed to create WGPU device")]
-    DeviceCreation(#[from] wgpu::RequestDeviceError),
-
-    #[error("failed to find a suitable surface format for sRGB")]
-    NoSuitableSurfaceFormat,
-
-    #[error("rendering to a surface failed")]
-    BadRender(#[from] wgpu::SurfaceError),
-}
-
-impl<'window> GfxState<'window> {
-    pub async fn new<W>(window: W, width: u32, height: u32) -> Result<GfxState<'window>, GfxError>
+impl<'window> Screen<'window> {
+    pub async fn new<W>(window: W, width: u32, height: u32) -> Result<Screen<'window>, GfxError>
     where
         W: HasRawWindowHandle + HasRawDisplayHandle,
     {
@@ -120,14 +102,48 @@ impl<'window> GfxState<'window> {
         };
         surface.configure(&device, &surface_config);
 
-        Ok(GfxState {
+        Ok(Screen {
+            window_lifetime: PhantomData,
             surface,
             surface_config,
             surface_size: (width, height),
             device,
             queue,
-            window_lifetime: PhantomData,
         })
+    }
+
+    pub fn create_material(
+        &self,
+        shader: ShaderModuleDescriptor,
+        vertex_entry_point: &'static str,
+        fragment_entry_point: &'static str,
+    ) -> Material {
+        Material::new(
+            &self.device,
+            shader,
+            vertex_entry_point,
+            fragment_entry_point,
+        )
+    }
+
+    pub fn create_render_pipeline(&self, pipeline_desc: &'static str) -> RenderPipelineBuilder {
+        RenderPipelineBuilder::new(pipeline_desc)
+    }
+
+    pub fn start_frame(&self, frame_desc: &'static str) -> Result<Frame, GfxError> {
+        Frame::new(&self.device, &self.surface, frame_desc).map_err(GfxError::from)
+    }
+
+    pub fn get_device(&self) -> &Device {
+        &self.device
+    }
+
+    pub fn get_queue(&self) -> &Queue {
+        &self.queue
+    }
+
+    pub fn get_surface_format(&self) -> TextureFormat {
+        self.surface_config.format
     }
 
     /// Resize the surface.
@@ -149,51 +165,5 @@ impl<'window> GfxState<'window> {
     ///
     pub fn recreate(&mut self) {
         self.surface.configure(&self.device, &self.surface_config);
-    }
-
-    pub fn render(&mut self) -> Result<(), GfxError> {
-        // Get the next texture to render to.
-        let frame = self.surface.get_current_texture()?;
-
-        // Create a view of the texture.  Default is fine for now as this covers
-        // the whole texture.
-        let view = frame.texture.create_view(&TextureViewDescriptor::default());
-
-        // Create a render pass encoder.
-        //
-        // This is used to record the commands that will be used to render the
-        // frame.  We can record multiple render passes in a single encoder.
-        //
-        let mut encoder = self
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Render encoder"),
-            });
-
-        {
-            let _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-        }
-
-        // Submit the commands to the queue.
-        self.queue.submit(once(encoder.finish()));
-        frame.present();
-
-        Ok(())
     }
 }
