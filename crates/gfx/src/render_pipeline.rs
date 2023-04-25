@@ -6,26 +6,109 @@ use wgpu::{
 
 use super::{GfxError, Material, Screen};
 
+/// A render pipeline builder.
+///
+/// # Notes
+///
+/// This is a builder for a render pipeline.  It is used to create a render pipeline
+/// from a material.
+///
+/// You can create the render pipeline using the [RenderPipelineBuilder::build] method.
+///
 pub struct RenderPipelineBuilder<'material> {
     desc: &'static str,
     shader: Option<&'material Material<'material>>,
 }
 
+/// A render pipeline.
+///
+/// # Notes
+///
+/// This is a render pipeline.  It is used to render a frame.
+///
+/// You can set the render pipeline for a render pass using the
+/// [RenderPass::set_pipeline] method.
+///
+/// You can get the render pipeline from a render pipeline builder using the
+/// [RenderPipelineBuilder::build] method.
+///
+/// [RenderPass::set_pipeline]: struct.RenderPass.html#method.set_pipeline
+/// [RenderPipelineBuilder::build]: struct.RenderPipelineBuilder.html#method.build
+///
 #[derive(Debug)]
 pub struct RenderPipeline {
     render_pipeline: wgpu::RenderPipeline,
 }
 
 impl<'material> RenderPipelineBuilder<'material> {
-    pub fn new(desc: &'static str) -> Self {
+    /// Creates a new render pipeline builder.
+    ///
+    /// # Parameters
+    ///
+    /// * `desc` - The description of the render pipeline for debugging purposes.
+    ///
+    /// # Returns
+    ///
+    /// The new render pipeline builder.
+    ///
+    pub(crate) fn new(desc: &'static str) -> Self {
         Self { desc, shader: None }
     }
 
+    /// Sets the material for the render pipeline.
+    ///
+    /// # Parameters
+    ///
+    /// * `material` - The material.
+    ///
+    /// # Returns
+    ///
+    /// The render pipeline builder with the material set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use gfx::Material;
+    /// # let material = Material::new();
+    /// # let screen = gfx::Screen::new();
+    /// let render_pipeline = gfx::RenderPipelineBuilder::new("Render pipeline")
+    ///     .shader(&material)
+    ///     .build(&screen)
+    ///     .unwrap();
+    /// ```
+    ///
     pub fn shader(mut self, material: &'material Material<'material>) -> Self {
         self.shader = Some(material);
         self
     }
 
+    /// Builds the render pipeline.
+    ///
+    /// # Parameters
+    ///
+    /// * `screen` - The screen.
+    ///
+    /// # Returns
+    ///
+    /// The render pipeline if it was built successfully.
+    ///
+    /// # Errors
+    ///
+    /// If the material was not set with the [RenderPipelineBuilder::shader] method, then
+    /// this will return an error of type [GfxError::BadMaterialMissingShaders].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use gfx::Material;
+    /// # let material = Material::new();
+    /// # let screen = gfx::Screen::new();
+    /// let render_pipeline = gfx::RenderPipelineBuilder::new("Render pipeline")
+    ///     .shader(&material)
+    ///     .build(&screen)
+    ///     .unwrap();
+    /// ```
+    ///
     pub fn build(self, screen: &Screen) -> Result<RenderPipeline, GfxError> {
         let shader = self.shader.ok_or(GfxError::BadMaterialMissingShaders)?;
 
@@ -81,7 +164,13 @@ impl<'material> RenderPipelineBuilder<'material> {
 }
 
 impl RenderPipeline {
-    pub fn get_render_pipeline(&self) -> &wgpu::RenderPipeline {
+    /// Gets the render pipeline.
+    ///
+    /// # Returns
+    ///
+    /// The underlying WGPU render pipeline.
+    ///
+    pub(crate) fn get_render_pipeline(&self) -> &wgpu::RenderPipeline {
         &self.render_pipeline
     }
 }

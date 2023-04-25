@@ -180,7 +180,7 @@ fn render(
         render_pass.draw_indexed(quad_indices.all());
     }
 
-    frame.finish(screen.get_queue());
+    frame.finish();
 
     Ok(())
 }

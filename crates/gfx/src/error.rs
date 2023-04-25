@@ -1,5 +1,13 @@
 use thiserror::Error;
 
+/// An error that can occur when using the `gfx` crate.
+///
+/// # See Also
+///
+/// * [wgpu::RequestDeviceError](https://docs.rs/wgpu/latest/wgpu/enum.RequestDeviceError.html)
+/// * [wgpu::SurfaceError](https://docs.rs/wgpu/latest/wgpu/enum.SurfaceError.html)
+/// * [wgpu::CreateSurfaceError](https://docs.rs/wgpu/latest/wgpu/enum.CreateSurfaceError.html)
+///
 #[derive(Debug, Error)]
 pub enum GfxError {
     #[error("failed to create WGPU surface")]
