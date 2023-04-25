@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use tracing::info;
 use wgpu::{
@@ -7,7 +8,7 @@ use wgpu::{
     Queue, ShaderModuleDescriptor, Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
 };
 
-use super::{render_pipeline::RenderPipelineBuilder, Frame, GfxError, Material};
+use super::{render_pipeline::RenderPipelineBuilder, Buffer, Frame, GfxError, Material};
 
 pub struct Screen<'window> {
     surface: Surface,
@@ -128,6 +129,17 @@ impl<'window> Screen<'window> {
 
     pub fn create_render_pipeline(&self, pipeline_desc: &'static str) -> RenderPipelineBuilder {
         RenderPipelineBuilder::new(pipeline_desc)
+    }
+
+    pub fn create_vertex_buffer<T>(&self, desc: &'static str, data: &[T]) -> Buffer
+    where
+        T: Pod + Zeroable,
+    {
+        Buffer::new_vertex_buffer(desc, &self.device, data)
+    }
+
+    pub fn create_index_buffer(&self, desc: &'static str, data: &[u16]) -> Buffer {
+        Buffer::new_index_buffer(desc, &self.device, data)
     }
 
     pub fn start_frame(&self, frame_desc: &'static str) -> Result<Frame, GfxError> {

@@ -2,11 +2,13 @@ mod gfx;
 
 use std::env::set_var;
 
+use bytemuck::{Pod, Zeroable};
 use color_eyre::{eyre::Context, Report};
-use gfx::{GfxError, RenderPipeline};
+use gfx::{Buffer, GfxError, RenderPipeline};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 use wgpu::{include_wgsl, Color, SurfaceError};
+use wgpu_macros::VertexLayout;
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -63,14 +65,17 @@ async fn main() -> Result<(), Report> {
     // This macro will compile the shader at compile time, and embed the
     // compiled shader into the binary. This means that we don't need to
     // worry about loading the shader at runtime.
-    let triangle_material =
-        screen.create_material(include_wgsl!("shader.wgsl"), "vs_main", "fs_main");
+    let triangle_material = screen
+        .create_material(include_wgsl!("shader.wgsl"), "vs_main", "fs_main")
+        .add_buffer_layout(Vertex::LAYOUT);
 
     let render_pipeline = screen
         .create_render_pipeline("triangle render")
-        .vertex_shader(&triangle_material)
-        .fragment_shader(&triangle_material)
+        .shader(&triangle_material)
         .build(&screen)?;
+
+    let quad_vertices = screen.create_vertex_buffer("Quad vertices", QUAD_VERTICES);
+    let quad_indices = screen.create_index_buffer("Quad indices", QUAD_INDICES);
 
     //
     // Main loop
@@ -104,21 +109,62 @@ async fn main() -> Result<(), Report> {
                 _ => {}
             },
 
-            Event::RedrawRequested(_) => match render(&screen, &render_pipeline) {
-                Ok(_) => {}
-                Err(GfxError::BadRender(SurfaceError::Lost)) => screen.recreate(),
-                Err(GfxError::BadRender(SurfaceError::OutOfMemory)) => {
-                    *control_flow = ControlFlow::Exit
+            Event::RedrawRequested(_) => {
+                match render(&screen, &render_pipeline, &quad_vertices, &quad_indices) {
+                    Ok(_) => {}
+                    Err(GfxError::BadRender(SurfaceError::Lost)) => screen.recreate(),
+                    Err(GfxError::BadRender(SurfaceError::OutOfMemory)) => {
+                        *control_flow = ControlFlow::Exit
+                    }
+                    Err(e) => error!("Error rendering: {}", e),
                 }
-                Err(e) => error!("Error rendering: {}", e),
-            },
+            }
 
             _ => {}
         }
     });
 }
 
-fn render(screen: &Screen, pipeline: &RenderPipeline) -> Result<(), GfxError> {
+// TODO: Possible to use a macro to generate this?
+// vertex! Vertex {
+//     0 => position: Float32x3,
+//     1 => colour: Float32x3,
+// }
+
+#[repr(C)]
+#[derive(Copy, Clone, Zeroable, Pod, VertexLayout)]
+struct Vertex {
+    position: [f32; 3],
+    colour: [f32; 3],
+}
+
+const QUAD_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.8, -0.8, 0.0],
+        colour: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [0.8, -0.8, 0.0],
+        colour: [1.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.8, 0.8, 0.0],
+        colour: [1.0, 0.0, 1.0],
+    },
+    Vertex {
+        position: [-0.8, 0.8, 0.0],
+        colour: [0.0, 1.0, 0.0],
+    },
+];
+
+const QUAD_INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
+
+fn render(
+    screen: &Screen,
+    pipeline: &RenderPipeline,
+    quad_buffer: &Buffer,
+    quad_indices: &Buffer,
+) -> Result<(), GfxError> {
     let mut frame = screen.start_frame("Main frame")?;
 
     {
@@ -133,7 +179,9 @@ fn render(screen: &Screen, pipeline: &RenderPipeline) -> Result<(), GfxError> {
         );
 
         render_pass.set_pipeline(pipeline);
-        render_pass.draw(0..3);
+        render_pass.set_vertex_buffer(0, quad_buffer, ..);
+        render_pass.set_index_buffer(quad_indices, ..);
+        render_pass.draw_indexed(quad_indices.all());
     }
 
     frame.finish(screen.get_queue());

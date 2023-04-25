@@ -1,14 +1,17 @@
 use wgpu::{
-    ColorTargetState, Device, FragmentState, ShaderModule, ShaderModuleDescriptor, VertexState,
+    ColorTargetState, Device, FragmentState, ShaderModule, ShaderModuleDescriptor,
+    VertexBufferLayout, VertexState,
 };
 
-pub struct Material {
+#[derive(Debug)]
+pub struct Material<'layout> {
     shader: ShaderModule,
     vertex_entry_point: &'static str,
     fragment_entry_point: &'static str,
+    buffer_layouts: Vec<VertexBufferLayout<'layout>>,
 }
 
-impl Material {
+impl<'material> Material<'material> {
     pub fn new(
         device: &Device,
         shader: ShaderModuleDescriptor,
@@ -20,6 +23,7 @@ impl Material {
             shader,
             vertex_entry_point,
             fragment_entry_point,
+            buffer_layouts: Vec::new(),
         }
     }
 
@@ -27,7 +31,7 @@ impl Material {
         VertexState {
             module: &self.shader,
             entry_point: self.vertex_entry_point,
-            buffers: &[],
+            buffers: &self.buffer_layouts,
         }
     }
 
@@ -37,5 +41,10 @@ impl Material {
             entry_point: self.fragment_entry_point,
             targets,
         }
+    }
+
+    pub fn add_buffer_layout(mut self, layout: VertexBufferLayout<'material>) -> Self {
+        self.buffer_layouts.push(layout);
+        self
     }
 }

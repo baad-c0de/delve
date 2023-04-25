@@ -1,9 +1,11 @@
+use std::ops::RangeBounds;
+
 use wgpu::{
-    Color, CommandEncoder, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    TextureView,
+    BufferAddress, Color, CommandEncoder, IndexFormat, LoadOp, Operations,
+    RenderPassColorAttachment, RenderPassDescriptor, TextureView,
 };
 
-use super::render_pipeline::RenderPipeline;
+use super::{render_pipeline::RenderPipeline, Buffer};
 
 pub struct RenderPass<'encoder> {
     render_pass: wgpu::RenderPass<'encoder>,
@@ -37,7 +39,27 @@ impl<'encoder> RenderPass<'encoder> {
             .set_pipeline(pipeline.get_render_pipeline());
     }
 
+    pub fn set_vertex_buffer<R>(&mut self, slot: u32, buffer: &'encoder Buffer, range: R)
+    where
+        R: RangeBounds<BufferAddress>,
+    {
+        self.render_pass
+            .set_vertex_buffer(slot, buffer.wgpu_buffer().slice(range));
+    }
+
+    pub fn set_index_buffer<R>(&mut self, buffer: &'encoder Buffer, range: R)
+    where
+        R: RangeBounds<BufferAddress>,
+    {
+        self.render_pass
+            .set_index_buffer(buffer.wgpu_buffer().slice(range), IndexFormat::Uint16);
+    }
+
     pub fn draw(&mut self, vertices: std::ops::Range<u32>) {
         self.render_pass.draw(vertices, 0..1);
+    }
+
+    pub fn draw_indexed(&mut self, indices: std::ops::Range<u32>) {
+        self.render_pass.draw_indexed(indices, 0, 0..1);
     }
 }
