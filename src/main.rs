@@ -1,10 +1,8 @@
-mod gfx;
-
 use std::env::set_var;
 
 use bytemuck::{Pod, Zeroable};
 use color_eyre::{eyre::Context, Report};
-use gfx::{Buffer, GfxError, RenderPipeline};
+use gfx::{Buffer, GfxError, RenderPipeline, Screen};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 use wgpu::{include_wgsl, Color, SurfaceError};
@@ -15,8 +13,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-
-use crate::gfx::Screen;
 
 #[tokio::main]
 async fn main() -> Result<(), Report> {
@@ -65,13 +61,13 @@ async fn main() -> Result<(), Report> {
     // This macro will compile the shader at compile time, and embed the
     // compiled shader into the binary. This means that we don't need to
     // worry about loading the shader at runtime.
-    let triangle_material = screen
+    let quad_material = screen
         .create_material(include_wgsl!("shader.wgsl"), "vs_main", "fs_main")
         .add_buffer_layout(Vertex::LAYOUT);
 
     let render_pipeline = screen
         .create_render_pipeline("triangle render")
-        .shader(&triangle_material)
+        .shader(&quad_material)
         .build(&screen)?;
 
     let quad_vertices = screen.create_vertex_buffer("Quad vertices", QUAD_VERTICES);

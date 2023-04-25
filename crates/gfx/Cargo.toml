@@ -1,17 +1,13 @@
 [package]
-name = "delve"
+name = "gfx"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gfx = { path = "crates/gfx" }
 bytemuck = { version = "1.13", features = ["derive"] }
-color-eyre = "0.6"
-tokio = { version = "1.27.0", features = ["macros", "rt-multi-thread"] }
+raw-window-handle = "0.5"
+thiserror = "1.0"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wgpu = "0.15"
-wgpu_macros = "0.1"
-winit = "0.28"
