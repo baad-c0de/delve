@@ -1,0 +1,33 @@
+// List of textures to load into the database
+//
+// Each texture should have the entry: texture <name> <file-name> <tile-width> <tile-height>
+//
+textures {
+    texture "core" "textures.png" 16 16
+}
+
+// List of sub-textures (tiles) with names
+//
+// Each sub-texture should have the entry: tile <name> <texture-name> <x> <y>
+//
+tiles {
+    tile "grass" "core" 0 0
+    tile "stone" "core" 1 0
+    tile "soil" "core" 2 0
+    tile "grass-edge" "core" 3 0
+}
+
+// List of block types
+//
+// Format is: block <name> <parameters for tiles>
+//
+// Parameters can be:
+//      top, bottom, front, back, left & right
+//      tiles  - shorthand for all the above (i.e. all sides)
+//      sides  - shorthand for front, back, left & right
+//
+blocks {
+    block "grass" top="grass" bottom="soil" sides="grass-edge"
+    block "stone" tiles="stone"
+    block "dirt" tiles="soil"
+}

@@ -1,7 +1,12 @@
+mod resources;
+
 use std::env::set_var;
 
 use bytemuck::{Pod, Zeroable};
-use color_eyre::{eyre::Context, Report};
+use color_eyre::{
+    eyre::{Context, ContextCompat},
+    Report,
+};
 use gfx::{Buffer, GfxError, RenderPipeline, Screen};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
@@ -32,6 +37,12 @@ async fn main() -> Result<(), Report> {
         .init();
 
     info!("Starting game...");
+
+    //
+    // Load start up resources
+    //
+
+    let _database = resources::read_kdl("core.kdl").context("loading core resources")?;
 
     //
     // Set up window
